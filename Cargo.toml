@@ -5,7 +5,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-reqwest = "0.12.15"
+image = "0.25.6"
+pdf = {package = "pdfium-render", version = "0.8.29", features = ["thread_safe"]}
+reqwest = {version = "0.12.15", features = ["rustls-tls", "json", "multipart"]}
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+thiserror = "2.0.12"
 tokio = "1.44.1"
+url = "2.5.4"
+
+
+[build-dependencies]
+cc = "1.2.17"
+
+
+[dev-dependencies]
+tokio = {version = "*", features = ["full"]}
