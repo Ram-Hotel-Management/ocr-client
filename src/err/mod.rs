@@ -1,8 +1,8 @@
 use image::ImageError;
-pub type OcrResult<T> = Result<T, OCRErrs>;
+pub type OcrResult<T> = Result<T, OcrErrs>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum OCRErrs {
+pub enum OcrErrs {
     #[error("An error occurred while parsing the PDF text (PDF_Extract)")]
     ExtractPdf(#[from] pdf::prelude::PdfiumError),
 
@@ -26,4 +26,10 @@ pub enum OCRErrs {
 
     #[error("EasyOCR not initialized")]
     EasyOcrInit,
+}
+
+impl<T> From<OcrErrs> for OcrResult<T> {
+    fn from(value: OcrErrs) -> Self {
+        Self::Err(value)
+    }
 }

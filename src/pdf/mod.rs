@@ -2,7 +2,7 @@ use doc::PdfDoc;
 use pdf::prelude::*;
 pub mod doc;
 
-use crate::err::{OCRErrs, OcrResult};
+use crate::err::{OcrErrs, OcrResult};
 use std::{env::temp_dir, path::PathBuf};
 
 /// writes the dynamic library at the provided location
@@ -26,7 +26,7 @@ fn write_dylib() -> OcrResult<PathBuf> {
     // Write the embedded library to the temporary file
     if !temp_lib_path.exists() {
         std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
-            OCRErrs::Custom(format!(
+            OcrErrs::Custom(format!(
                 "Failed to create temp libpdfium dynamic library : {e:?}"
             ))
         })?;
@@ -65,6 +65,7 @@ impl PdfEngine {
             }
         }
 
-        Ok(PdfDoc { doc, imgs })
+        // Ok(PdfDoc { doc, imgs })
+        todo!()
     }
 }
