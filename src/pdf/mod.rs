@@ -24,6 +24,7 @@ fn write_dylib() -> OcrResult<PathBuf> {
     let temp_lib_path = temp_dir().join(Pdfium::pdfium_platform_library_name());
 
     // Write the embedded library to the temporary file
+    // if it doesn't exists
     if !temp_lib_path.exists() {
         std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
             OcrErrs::Custom(format!(
@@ -65,7 +66,10 @@ impl PdfEngine {
             }
         }
 
-        // Ok(PdfDoc { doc, imgs })
-        todo!()
+        Ok(PdfDoc {
+            doc,
+            imgs,
+            parsed_doc: vec![],
+        })
     }
 }

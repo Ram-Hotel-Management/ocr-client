@@ -1,5 +1,6 @@
 use crate::{
     err::{OcrErrs, OcrResult},
+    img::ImgOcr,
     server::{
         docling::{OcrDoc, ParsedDoc},
         invoice::InvoiceDetails,
@@ -40,18 +41,15 @@ impl PdfDoc<'_> {
             return OcrErrs::Custom("Tried to access image greater than the length".into()).into();
         }
 
-        let img = &self.imgs[i];
-
-        let img_doc = OcrDoc::from_img(img)?;
-
-        img_doc.parse().await
+        self.imgs[i].ocr().await
     }
 
     /// Extract relevenat data from images if possible
-    /// this will send a request to the ocr server to perform extraction
-    /// this will assume the images are upright
-    /// if there is orientation, the caller has to fix.
-    /// Will return an error as soon as one of the images return an error
+    ///  - this will send a request to the ocr server to perform extraction.
+    ///  - this will assume the images are upright
+    ///  - if there is orientation, the caller has to fix.
+    ///  - Will return an error as soon as one of the images return an error
+    ///  - Only performs OCR on the images that are incompleted/ or have not been done
     pub async fn extract(&mut self) -> OcrResult<()> {
         for i in self.parsed_doc.len()..self.imgs.len() {
             let parsed = self.extract_i(i).await?;

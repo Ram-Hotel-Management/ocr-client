@@ -9,7 +9,7 @@ base64 = "0.22.1"
 chrono = "0.4.40"
 either = "1.15.0"
 image = "0.25.6"
-pdf = {package = "pdfium-render", version = "0.8.29", features = ["thread_safe"]}
+pdf = {package = "pdfium-render", version = "0.8"}
 regex = "1.11.1"
 reqwest = {version = "0.12.15", features = ["rustls-tls", "json", "multipart"]}
 serde = { version = "1.0.219", features = ["derive"] }
@@ -20,7 +20,7 @@ url = "2.5.4"
 
 
 [build-dependencies]
-cc = "1.2.17"
+# cc = "1.2.17"
 
 
 [dev-dependencies]

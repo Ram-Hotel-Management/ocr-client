@@ -65,7 +65,7 @@ impl OcrClient {
         Ok(r.into())
     }
 
-    pub async fn doc_info(doc: OcrDoc<'_>) -> OcrResult<ParsedDoc> {
+    pub async fn get_doc_info(doc: OcrDoc<'_>) -> OcrResult<ParsedDoc> {
         let r = OCR_CLIENT.read().await;
         let client = r.as_ref().ok_or_else(|| {
             OcrErrs::Custom(

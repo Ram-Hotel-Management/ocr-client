@@ -6,7 +6,6 @@ use serde::Deserialize;
 
 use crate::err::OcrResult;
 
-use super::OcrClient;
 /// Provides a convience method to deserialize
 /// invoice info received from the server
 #[derive(Debug, Deserialize)]
@@ -65,7 +64,7 @@ impl From<InvoiceResponse> for InvoiceDetails {
 
 impl InvoiceDetails {
     pub async fn process(img: &DynamicImage) -> OcrResult<Self> {
-        OcrClient::get_invoice_info(img).await
+        super::OcrClient::get_invoice_info(img).await
     }
 }
 

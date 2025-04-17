@@ -23,9 +23,6 @@ pub enum OcrErrs {
 
     #[error("IO Err: {0}")]
     IO(#[from] std::io::Error),
-
-    #[error("EasyOCR not initialized")]
-    EasyOcrInit,
 }
 
 impl<T> From<OcrErrs> for OcrResult<T> {

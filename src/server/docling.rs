@@ -129,7 +129,7 @@ impl<'a> OcrDoc<'a> {
     /// Perform ocr on the provided document
     /// this will send the request to the server
     pub async fn parse(self) -> OcrResult<ParsedDoc> {
-        super::OcrClient::doc_info(self).await
+        super::OcrClient::get_doc_info(self).await
     }
 }
 
