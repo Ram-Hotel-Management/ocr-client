@@ -1,10 +1,7 @@
 use crate::{
     err::{OcrErrs, OcrResult},
     img::ImgOcr,
-    server::{
-        docling::{OcrDoc, ParsedDoc},
-        invoice::InvoiceDetails,
-    },
+    server::{docling::ParsedDoc, invoice::InvoiceDetails},
 };
 use image::DynamicImage;
 use pdf::prelude::*;
