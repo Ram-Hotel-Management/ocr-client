@@ -1,9 +1,16 @@
+use crossbeam::atomic::AtomicCell;
 use doc::PdfDoc;
 use pdf::prelude::*;
 pub mod doc;
 
 use crate::err::{OcrErrs, OcrResult};
-use std::{env::temp_dir, path::PathBuf};
+use std::{
+    env::temp_dir,
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+static DYLIB_WRITTEN: AtomicBool = AtomicBool::new(false);
 
 /// writes the dynamic library at the provided location
 /// based on the platform and returns the path at which it
@@ -25,32 +32,41 @@ fn write_dylib() -> OcrResult<PathBuf> {
 
     // Write the embedded library to the temporary file
     // if it doesn't exists
-    if !temp_lib_path.exists() {
+    if !DYLIB_WRITTEN.load(Ordering::Acquire) || !temp_lib_path.exists() {
         std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
             OcrErrs::Custom(format!(
                 "Failed to create temp libpdfium dynamic library : {e:?}"
             ))
         })?;
+
+        DYLIB_WRITTEN.swap(true, Ordering::Release);
     }
 
     Ok(temp_lib_path)
 }
 
-#[derive(Debug)]
+fn load_lib() -> OcrResult<Pdfium> {
+    let p = write_dylib()?;
+    let bindings = Pdfium::bind_to_library(p)?;
+    let pdfium = Pdfium::new(bindings);
+    Ok(pdfium)
+}
+
+// #[derive(Debug)]
 pub struct PdfEngine {
-    pdfium: Pdfium,
+    pdfium: AtomicCell<Pdfium>,
 }
 
 impl PdfEngine {
     pub fn new() -> OcrResult<Self> {
-        let p = write_dylib()?;
-        let bindings = Pdfium::bind_to_library(p)?;
-        let pdfium = Pdfium::new(bindings);
-        Ok(Self { pdfium })
+        Ok(Self {
+            pdfium: AtomicCell::new(load_lib()?),
+        })
     }
 
     pub fn parse<'a>(&'a self, bytes: &'a [u8]) -> OcrResult<PdfDoc<'a>> {
-        let doc = self.pdfium.load_pdf_from_byte_slice(bytes, None)?;
+        let pdfium = self.pdfium.swap(load_lib()?);
+        let doc = pdfium.load_pdf_from_byte_slice(bytes, None)?;
 
         let pages = doc.pages().iter();
 
@@ -66,10 +82,12 @@ impl PdfEngine {
             }
         }
 
-        Ok(PdfDoc {
-            doc,
-            imgs,
-            parsed_doc: vec![],
-        })
+        todo!()
+
+        // Ok(PdfDoc {
+        //     doc,
+        //     imgs,
+        //     parsed_doc: vec![],
+        // })
     }
 }

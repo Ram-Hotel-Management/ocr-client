@@ -20,9 +20,9 @@ pub struct InvoiceResponse {
 
 #[derive(Debug)]
 pub struct InvoiceDetails {
-    pub inv_no: String,
-    pub vendor: String,
-    pub acct_no: String,
+    pub inv_no: Option<String>,
+    pub vendor: Option<String>,
+    pub acct_no: Option<String>,
     pub inv_date: Either<NaiveDate, String>,
     pub due_date: Either<NaiveDate, String>,
     pub total: Either<f64, String>,
@@ -52,9 +52,9 @@ impl From<InvoiceResponse> for InvoiceDetails {
             .unwrap_or_else(|| Either::Right("Unavailable".into()));
 
         Self {
-            inv_no: invoice_no.unwrap_or_else(|| "Unavailable".into()),
-            vendor: vendor.unwrap_or_else(|| "Unavailable".into()),
-            acct_no: acct_no.unwrap_or_else(|| "Unavailable".into()),
+            inv_no: invoice_no,
+            vendor,
+            acct_no,
             inv_date,
             due_date,
             total,
