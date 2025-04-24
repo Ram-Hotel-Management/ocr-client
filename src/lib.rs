@@ -1,6 +1,9 @@
 use err::OcrResult;
 use image::DynamicImage;
-use pdf::{PdfEngine, doc::PdfDoc};
+use pdf::{
+    PdfEngine,
+    doc::{PdfDoc, PdfInvoiceDoc},
+};
 use server::{
     OcrClient,
     docling::{OcrDoc, ParsedDoc},
@@ -29,24 +32,21 @@ impl OcrEngine {
     pub async fn new(ocr_server_addr: &str) -> OcrResult<Self> {
         setup(ocr_server_addr).await?;
         Ok(Self {
-            pdf_engine: PdfEngine::new()?,
+            pdf_engine: PdfEngine::new().await?,
         })
     }
 
     /// short hand for getting invoice and pdf in one shot
-    pub async fn pdf_invoice<'a>(&'a self, bytes: &'a [u8]) -> OcrResult<()> {
-        let mut pdf = self.pdf(bytes)?;
-        pdf.extract().await?;
-        let invoice_infos = pdf.invoice_info().await?;
-        Ok(())
+    pub async fn pdf_invoice(&self, bytes: Vec<u8>) -> OcrResult<PdfInvoiceDoc> {
+        self.pdf_engine.invoice(bytes).await
     }
 
     /// creates a pdf
     /// from provided bytes
     /// It is assumed that provided bytes are from PDF, otherwise it will return
     /// an error
-    pub fn pdf<'a>(&'a self, bytes: &'a [u8]) -> OcrResult<PdfDoc<'a>> {
-        self.pdf_engine.parse(bytes)
+    pub async fn pdf(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
+        self.pdf_engine.doc(bytes).await
     }
 
     /// short hand to process invoice details quickly

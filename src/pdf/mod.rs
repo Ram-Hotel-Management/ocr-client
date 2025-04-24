@@ -1,21 +1,21 @@
 use crossbeam::atomic::AtomicCell;
-use doc::PdfDoc;
+use doc::{PdfDoc, PdfInvoiceDoc};
 use pdf::prelude::*;
 pub mod doc;
-
 use crate::err::{OcrErrs, OcrResult};
 use std::{
     env::temp_dir,
     path::PathBuf,
     sync::atomic::{AtomicBool, Ordering},
 };
+use tokio::fs::metadata;
 
 static DYLIB_WRITTEN: AtomicBool = AtomicBool::new(false);
 
 /// writes the dynamic library at the provided location
 /// based on the platform and returns the path at which it
 /// was written
-fn write_dylib() -> OcrResult<PathBuf> {
+async fn write_dylib() -> OcrResult<PathBuf> {
     #[cfg(target_os = "windows")]
     const PDFIUM_LIB: &[u8] = include_bytes!("../../include/windows/pdfium.dll");
 
@@ -30,23 +30,26 @@ fn write_dylib() -> OcrResult<PathBuf> {
 
     let temp_lib_path = temp_dir().join(Pdfium::pdfium_platform_library_name());
 
-    // Write the embedded library to the temporary file
-    // if it doesn't exists
-    if !DYLIB_WRITTEN.load(Ordering::Acquire) || !temp_lib_path.exists() {
-        std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
-            OcrErrs::Custom(format!(
-                "Failed to create temp libpdfium dynamic library : {e:?}"
-            ))
-        })?;
+    {
+        let exists = metadata(&temp_lib_path);
+        // Write the embedded library to the temporary file
+        // if it doesn't exists
+        if !DYLIB_WRITTEN.load(Ordering::Acquire) || exists.await.is_err() {
+            std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
+                OcrErrs::Custom(format!(
+                    "Failed to create temp libpdfium dynamic library : {e:?}"
+                ))
+            })?;
 
-        DYLIB_WRITTEN.swap(true, Ordering::Release);
+            DYLIB_WRITTEN.store(true, Ordering::Release);
+        }
     }
 
     Ok(temp_lib_path)
 }
 
-fn load_lib() -> OcrResult<Pdfium> {
-    let p = write_dylib()?;
+async fn load_lib() -> OcrResult<Pdfium> {
+    let p = write_dylib().await?;
     let bindings = Pdfium::bind_to_library(p)?;
     let pdfium = Pdfium::new(bindings);
     Ok(pdfium)
@@ -58,36 +61,45 @@ pub struct PdfEngine {
 }
 
 impl PdfEngine {
-    pub fn new() -> OcrResult<Self> {
+    pub async fn new() -> OcrResult<Self> {
         Ok(Self {
-            pdfium: AtomicCell::new(load_lib()?),
+            pdfium: AtomicCell::new(load_lib().await?),
         })
     }
 
-    pub fn parse<'a>(&'a self, bytes: &'a [u8]) -> OcrResult<PdfDoc<'a>> {
-        let pdfium = self.pdfium.swap(load_lib()?);
-        let doc = pdfium.load_pdf_from_byte_slice(bytes, None)?;
-
-        let pages = doc.pages().iter();
-
+    pub async fn doc(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
+        let pdfium = self.pdfium.swap(load_lib().await?);
         let mut imgs = Vec::new();
 
-        for page in pages {
-            for obj in page.objects().iter() {
-                if let Some(image) = obj.as_image_object() {
-                    if let Ok(image) = image.get_raw_image() {
-                        imgs.push(image);
+        {
+            let doc = pdfium.load_pdf_from_byte_slice(&bytes, None)?;
+
+            let pages = doc.pages().iter();
+
+            for page in pages {
+                for obj in page.objects().iter() {
+                    if let Some(image) = obj.as_image_object() {
+                        if let Ok(image) = image.get_raw_image() {
+                            imgs.push(image);
+                        }
                     }
                 }
             }
         }
 
-        todo!()
+        let mut pdf = PdfDoc {
+            pdfium,
+            bytes,
+            imgs,
+            parsed_doc: Vec::new(),
+        };
 
-        // Ok(PdfDoc {
-        //     doc,
-        //     imgs,
-        //     parsed_doc: vec![],
-        // })
+        pdf.extract().await;
+
+        Ok(pdf)
+    }
+
+    pub async fn invoice(&self, bytes: Vec<u8>) -> OcrResult<PdfInvoiceDoc> {
+        Ok(self.doc(bytes).await?.into_invoice_doc().await)
     }
 }
