@@ -1,7 +1,10 @@
 use crate::{
-    err::{OcrErrs, OcrResult},
-    img::ImgOcr,
-    server::{docling::ParsedDoc, invoice::InvoiceDetails},
+    err::OcrResult,
+    server::{
+        OcrClient,
+        docling::{OcrDoc, ParsedDoc},
+        invoice::InvoiceDetails,
+    },
 };
 use image::DynamicImage;
 use pdf::prelude::*;
@@ -12,7 +15,7 @@ pub struct PdfDoc {
     pub(crate) pdfium: Pdfium,
     /// All embedded images found in this document
     pub imgs: Vec<DynamicImage>,
-    pub parsed_doc: Vec<Option<ParsedDoc>>,
+    pub parsed_doc: Vec<OcrResult<ParsedDoc>>,
 }
 
 impl PdfDoc {
@@ -49,13 +52,9 @@ impl PdfDoc {
         false
     }
 
-    /// Extract OCR data on the index img
-    pub async fn extract_i(&self, i: usize) -> OcrResult<ParsedDoc> {
-        if i >= self.imgs.len() {
-            return OcrErrs::Custom("Tried to access image greater than the length".into()).into();
-        }
-
-        self.imgs[i].ocr().await
+    async fn ocr_img(client: &OcrClient, img: &DynamicImage) -> OcrResult<ParsedDoc> {
+        let doc = OcrDoc::from_img(img)?;
+        client.get_doc_info(doc).await
     }
 
     /// Extract relevenat data from images if possible
@@ -64,9 +63,10 @@ impl PdfDoc {
     ///  - if there is orientation, the caller has to fix.
     ///  - if an error occurs while sending the request the value at that index is set to None
     ///  - Only performs OCR on the images that are incompleted/ or have not been done
-    pub async fn extract(&mut self) {
+    pub async fn ocr(&mut self, client: &OcrClient) {
         for i in self.parsed_doc.len()..self.imgs.len() {
-            let parsed = self.extract_i(i).await.ok();
+            let img = &self.imgs[i];
+            let parsed = Self::ocr_img(client, img).await;
             self.parsed_doc.push(parsed);
         }
     }
@@ -80,8 +80,8 @@ impl PdfDoc {
     /// in order to convert page image it needs to render into bitmap
     /// and to convert it to pixels for image it needs height and width
     /// By default it will use A4 size paper in pixel @200DPI (w: 1654, h: 2339)
-    pub(crate) async fn invoice_info(&self) -> OcrResult<InvoiceDetails> {
-        self.invoice_info_wh(2339, 1654).await
+    pub(crate) async fn invoice_info(&self, client: &OcrClient) -> OcrResult<InvoiceDetails> {
+        self.invoice_info_wh(client, 2339, 1654).await
     }
 
     /// gets invoice data will from this pdf file
@@ -91,6 +91,7 @@ impl PdfDoc {
     /// Beware that this does not perform any rotation on an the page
     pub(crate) async fn invoice_info_wh(
         &self,
+        client: &OcrClient,
         height: Pixels,
         width: Pixels,
     ) -> OcrResult<InvoiceDetails> {
@@ -99,11 +100,11 @@ impl PdfDoc {
 
         let first_page_img = first_page.render(width, height, None)?.as_image();
 
-        InvoiceDetails::process(&first_page_img).await
+        client.get_invoice_info(&first_page_img).await
     }
 
-    pub async fn into_invoice_doc(self) -> PdfInvoiceDoc {
-        let invoice_details = self.invoice_info().await;
+    pub async fn into_invoice_doc(self, client: &OcrClient) -> PdfInvoiceDoc {
+        let invoice_details = self.invoice_info(client).await;
 
         PdfInvoiceDoc {
             doc: self,

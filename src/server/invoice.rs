@@ -1,10 +1,7 @@
 use chrono::NaiveDate;
 use either::Either;
-use image::DynamicImage;
 use regex::Regex;
 use serde::Deserialize;
-
-use crate::err::OcrResult;
 
 /// Provides a convience method to deserialize
 /// invoice info received from the server
@@ -59,12 +56,6 @@ impl From<InvoiceResponse> for InvoiceDetails {
             due_date,
             total,
         }
-    }
-}
-
-impl InvoiceDetails {
-    pub async fn process(img: &DynamicImage) -> OcrResult<Self> {
-        super::OcrClient::get_invoice_info(img).await
     }
 }
 

@@ -125,12 +125,6 @@ impl<'a> OcrDoc<'a> {
             bytes: img_bytes,
         })
     }
-
-    /// Perform ocr on the provided document
-    /// this will send the request to the server
-    pub async fn parse(self) -> OcrResult<ParsedDoc> {
-        super::OcrClient::get_doc_info(self).await
-    }
 }
 
 #[test]

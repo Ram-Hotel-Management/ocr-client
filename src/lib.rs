@@ -10,35 +10,25 @@ use server::{
     invoice::InvoiceDetails,
 };
 pub mod err;
-pub mod img;
 pub mod pdf;
 pub mod server;
 
-/// this function needs to be called to initialize important
-/// parts of the ocr crate. Either call this function or
-/// the individual items needs be initialized
-/// # Arguments
-/// - ocr_addr: The address where the ocr server is running, could be website or ip address with port
-pub async fn setup(ocr_addr: &str) -> OcrResult<()> {
-    OcrClient::init(ocr_addr).await?;
-    Ok(())
-}
-
 pub struct OcrEngine {
     pdf_engine: PdfEngine,
+    client: OcrClient,
 }
 
 impl OcrEngine {
     pub async fn new(ocr_server_addr: &str) -> OcrResult<Self> {
-        setup(ocr_server_addr).await?;
         Ok(Self {
             pdf_engine: PdfEngine::new().await?,
+            client: OcrClient::new(ocr_server_addr).await?,
         })
     }
 
     /// short hand for getting invoice and pdf in one shot
     pub async fn pdf_invoice(&self, bytes: Vec<u8>) -> OcrResult<PdfInvoiceDoc> {
-        self.pdf_engine.invoice(bytes).await
+        self.pdf_engine.invoice(&self.client, bytes).await
     }
 
     /// creates a pdf
@@ -50,12 +40,13 @@ impl OcrEngine {
     }
 
     /// short hand to process invoice details quickly
-    pub async fn invoice_details(img: &DynamicImage) -> OcrResult<InvoiceDetails> {
-        InvoiceDetails::process(img).await
+    pub async fn invoice_details(&self, img: &DynamicImage) -> OcrResult<InvoiceDetails> {
+        self.client.get_invoice_info(img).await
     }
 
     /// Short hand function for easy access
-    pub async fn ocr(img: &DynamicImage) -> OcrResult<ParsedDoc> {
-        OcrDoc::from_img(img)?.parse().await
+    pub async fn ocr(&self, img: &DynamicImage) -> OcrResult<ParsedDoc> {
+        let doc = OcrDoc::from_img(img)?;
+        self.client.get_doc_info(doc).await
     }
 }

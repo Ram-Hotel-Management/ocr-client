@@ -1,8 +1,10 @@
-use crossbeam::atomic::AtomicCell;
 use doc::{PdfDoc, PdfInvoiceDoc};
 use pdf::prelude::*;
 pub mod doc;
-use crate::err::{OcrErrs, OcrResult};
+use crate::{
+    err::{OcrErrs, OcrResult},
+    server::OcrClient,
+};
 use std::{
     env::temp_dir,
     path::PathBuf,
@@ -28,7 +30,8 @@ async fn write_dylib() -> OcrResult<PathBuf> {
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
     const PDFIUM_LIB: &[u8] = include_bytes!("../../include/linux/aarch64/libpdfium.so");
 
-    let temp_lib_path = temp_dir().join(Pdfium::pdfium_platform_library_name());
+    let temp_lib_path = temp_dir();
+    // let temp_lib_path = temp_lib_path.join(Pdfium::pdfium_platform_library_name());
 
     {
         let exists = metadata(&temp_lib_path);
@@ -49,28 +52,29 @@ async fn write_dylib() -> OcrResult<PathBuf> {
 }
 
 async fn load_lib() -> OcrResult<Pdfium> {
-    let p = write_dylib().await?;
-    let bindings = Pdfium::bind_to_library(p)?;
+    // let p = write_dylib().await?;
+    // let bindings = Pdfium::bind_to_library(p)?;
+    let bindings = Pdfium::bind_to_statically_linked_library()?;
     let pdfium = Pdfium::new(bindings);
     Ok(pdfium)
 }
 
 // #[derive(Debug)]
 pub struct PdfEngine {
-    pdfium: AtomicCell<Pdfium>,
+    // pdfium: Pdfium,
 }
 
 impl PdfEngine {
     pub async fn new() -> OcrResult<Self> {
+        load_lib().await?;
         Ok(Self {
-            pdfium: AtomicCell::new(load_lib().await?),
+            // pdfium: load_lib().await?,
         })
     }
 
     pub async fn doc(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
-        let pdfium = self.pdfium.swap(load_lib().await?);
         let mut imgs = Vec::new();
-
+        let pdfium = load_lib().await?;
         {
             let doc = pdfium.load_pdf_from_byte_slice(&bytes, None)?;
 
@@ -87,19 +91,16 @@ impl PdfEngine {
             }
         }
 
-        let mut pdf = PdfDoc {
+        let pdf = PdfDoc {
             pdfium,
             bytes,
             imgs,
             parsed_doc: Vec::new(),
         };
-
-        pdf.extract().await;
-
         Ok(pdf)
     }
 
-    pub async fn invoice(&self, bytes: Vec<u8>) -> OcrResult<PdfInvoiceDoc> {
-        Ok(self.doc(bytes).await?.into_invoice_doc().await)
+    pub async fn invoice(&self, client: &OcrClient, bytes: Vec<u8>) -> OcrResult<PdfInvoiceDoc> {
+        Ok(self.doc(bytes).await?.into_invoice_doc(client).await)
     }
 }

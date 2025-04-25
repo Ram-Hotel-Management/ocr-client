@@ -4,7 +4,7 @@
 /// codebase
 pub mod docling;
 pub mod invoice;
-use crate::err::{OcrErrs, OcrResult};
+use crate::err::OcrResult;
 use docling::{OcrDoc, ParsedDoc};
 use image::DynamicImage;
 use invoice::{InvoiceDetails, InvoiceResponse};
@@ -15,9 +15,6 @@ use reqwest::{
 use serde::Deserialize;
 use serde_json::Value;
 use std::io::Cursor;
-use tokio::sync::RwLock;
-
-pub(crate) static OCR_CLIENT: RwLock<Option<OcrClient>> = RwLock::const_new(None);
 
 #[derive(Debug, Deserialize)]
 pub struct OCRServerHttpErrInner {
@@ -40,41 +37,19 @@ pub struct OcrClient {
 
 impl OcrClient {
     /// Initialize ocr client
-    pub async fn init(addr: &str) -> OcrResult<()> {
+    pub async fn new(addr: &str) -> OcrResult<Self> {
         let base = Url::parse(addr)?;
-
-        let client = Client::builder().use_rustls_tls().build().unwrap();
-        let a = OcrClient { client, base };
-        let mut res = OCR_CLIENT.write().await;
-        *res = Some(a);
-
-        Ok(())
+        let client = Client::builder().use_rustls_tls().build()?;
+        Ok(OcrClient { client, base })
     }
 
-    pub async fn get_invoice_info(img: &DynamicImage) -> OcrResult<InvoiceDetails> {
-        let r = OCR_CLIENT.read().await;
-        let client = r.as_ref().ok_or_else(|| {
-            OcrErrs::Custom(
-                "Client must be initialized before accessing. Initialize with init_ocr_client"
-                    .into(),
-            )
-        })?;
-
-        let r = client._invoice_info(img).await?;
-
+    pub async fn get_invoice_info(&self, img: &DynamicImage) -> OcrResult<InvoiceDetails> {
+        let r = self._invoice_info(img).await?;
         Ok(r.into())
     }
 
-    pub async fn get_doc_info(doc: OcrDoc<'_>) -> OcrResult<ParsedDoc> {
-        let r = OCR_CLIENT.read().await;
-        let client = r.as_ref().ok_or_else(|| {
-            OcrErrs::Custom(
-                "Client must be initialized before accessing. Initialize with init_ocr_client"
-                    .into(),
-            )
-        })?;
-
-        client._doc_info(doc.bytes).await
+    pub async fn get_doc_info(&self, doc: OcrDoc<'_>) -> OcrResult<ParsedDoc> {
+        self._doc_info(doc.bytes).await
     }
 
     async fn img_req<T>(&self, url_path: &str, img: &DynamicImage) -> OcrResult<T>
