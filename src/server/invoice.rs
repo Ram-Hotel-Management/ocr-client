@@ -101,7 +101,7 @@ pub fn parse_f64_from_str(s: String) -> Either<f64, String> {
 
 fn extract_net_number(s: &str) -> Option<u32> {
     let re = Regex::new(r"(?i)net\s*(\d+)").unwrap(); // (?i) = case-insensitive
-    re.captures(&s)
+    re.captures(s)
         .and_then(|caps| caps.get(1))
         .and_then(|m| m.as_str().parse::<u32>().ok())
 }

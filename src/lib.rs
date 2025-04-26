@@ -56,12 +56,12 @@ impl OcrEngine {
 
     /// short hand to process invoice details quickly
     pub async fn invoice_details(&self, img: &DynamicImage) -> OcrResult<InvoiceDetails> {
-        self.client.get_invoice_info(img).await
+        self.client.invoice(img).await
     }
 
     /// Short hand function for easy access
     pub async fn ocr(&self, img: &DynamicImage) -> OcrResult<ParsedDoc> {
         let doc = OcrDoc::from_img(img)?;
-        self.client.get_doc_info(doc).await
+        self.client.docling(doc).await
     }
 }

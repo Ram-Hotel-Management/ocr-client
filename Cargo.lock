@@ -1185,7 +1185,6 @@ dependencies = [
 name = "ocr-client"
 version = "0.1.0"
 dependencies = [
- "base64",
  "chrono",
  "either",
  "image",

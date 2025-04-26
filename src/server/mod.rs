@@ -5,7 +5,6 @@
 pub mod docling;
 pub mod invoice;
 use crate::{OCRServerErr, err::OcrResult};
-use base64::{Engine, prelude::BASE64_STANDARD};
 use docling::{OcrDoc, ParsedDoc};
 use image::DynamicImage;
 use invoice::{InvoiceDetails, InvoiceResponse};
@@ -29,13 +28,18 @@ impl OcrClient {
         Ok(OcrClient { client, base })
     }
 
-    pub async fn get_invoice_info(&self, img: &DynamicImage) -> OcrResult<InvoiceDetails> {
-        let r = self._invoice_info(img).await?;
-        Ok(r.into())
+    /// makes a request to /.../ocr/invoice
+    pub async fn invoice(&self, img: &DynamicImage) -> OcrResult<InvoiceDetails> {
+        let res = self.img_req::<InvoiceResponse>("ocr/invoice", img).await?;
+        Ok(res.into())
     }
 
-    pub async fn get_doc_info(&self, doc: OcrDoc<'_>) -> OcrResult<ParsedDoc> {
-        self._doc_info(doc.bytes).await
+    /// makes a request to /.../ocr/doc
+    pub async fn docling(&self, doc: OcrDoc<'_>) -> OcrResult<ParsedDoc> {
+        let res = self
+            .bytes_req("ocr/doc", doc.bytes, doc.name.into())
+            .await?;
+        Ok(res)
     }
 
     async fn img_req<T>(&self, url_path: &str, img: &DynamicImage) -> OcrResult<T>
@@ -45,20 +49,20 @@ impl OcrClient {
         // Convert DynamicImage to bytes
         let mut img_bytes = Vec::new();
 
-        img.to_rgb8()
-            .write_to(&mut Cursor::new(&mut img_bytes), image::ImageFormat::Jpeg)?;
-        self.bytes_req(url_path, img_bytes).await
+        img.write_to(&mut Cursor::new(&mut img_bytes), image::ImageFormat::Png)?;
+        self.bytes_req(url_path, img_bytes, "[Unknown].png".into())
+            .await
     }
 
     /// makes a request to given path
     /// the path should not include the base
-    async fn bytes_req<T>(&self, url_path: &str, data: Vec<u8>) -> OcrResult<T>
+    async fn bytes_req<T>(&self, url_path: &str, data: Vec<u8>, name: String) -> OcrResult<T>
     where
         T: for<'a> Deserialize<'a>,
     {
-        let encoded = BASE64_STANDARD.encode(&data);
-        // let part = Part::text(encoded);
-        let part = Part::bytes(data).file_name("[unknown].jpg");
+        // NOTE: filename has to be attached otherwise it causes
+        // issue on the server side
+        let part = Part::bytes(data).file_name(name);
 
         let form = Form::new().part("file", part);
 
@@ -77,15 +81,9 @@ impl OcrClient {
         }
     }
 
-    /// makes a request to /.../ocr/invoice
-    async fn _invoice_info(&self, img: &DynamicImage) -> OcrResult<InvoiceResponse> {
-        let res = self.img_req::<InvoiceResponse>("ocr/invoice", img).await?;
-        Ok(res)
-    }
-
-    /// makes a request to /.../ocr/doc
-    async fn _doc_info(&self, bytes: Vec<u8>) -> OcrResult<ParsedDoc> {
-        let res = self.bytes_req("ocr/doc", bytes).await?;
-        Ok(res)
-    }
+    // /// makes a request to /.../ocr/invoice
+    // async fn _invoice_info(&self, img: &DynamicImage) -> OcrResult<InvoiceResponse> {
+    //     let res = self.img_req::<InvoiceResponse>("ocr/invoice", img).await?;
+    //     Ok(res)
+    // }
 }

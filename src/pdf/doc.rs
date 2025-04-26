@@ -54,7 +54,7 @@ impl PdfDoc {
 
     async fn ocr_img(client: &OcrClient, img: &DynamicImage) -> OcrResult<ParsedDoc> {
         let doc = OcrDoc::from_img(img)?;
-        client.get_doc_info(doc).await
+        client.docling(doc).await
     }
 
     /// Extract relevenat data from images if possible
@@ -103,12 +103,7 @@ impl PdfDoc {
 
         let first_page_img = first_page.render_with_config(&render_config)?.as_image();
 
-        // first_page_img
-        //     .to_rgb8()
-        //     .save_with_format("./test1.jpg", image::ImageFormat::Jpeg)
-        //     .unwrap();
-
-        client.get_invoice_info(&first_page_img).await
+        client.invoice(&first_page_img).await
     }
 
     pub async fn into_invoice_doc(self, client: &OcrClient) -> PdfInvoiceDoc {
