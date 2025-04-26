@@ -11,7 +11,7 @@ async fn invoice_test() {
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes).await.unwrap();
 
-    let ocr_engine = OcrEngine::new("http://localhost:8000").await.unwrap();
+    let ocr_engine = OcrEngine::new("http://localhost:8000").unwrap();
     let res = ocr_engine.pdf_invoice(bytes).await.unwrap().invoice_details;
     match res {
         Ok(res) => {
@@ -25,9 +25,7 @@ async fn invoice_test() {
 
 #[tokio::test]
 async fn test_invoice_info() {
-    // use std::fs::File;
-    let ocr_engine = OcrEngine::new("http://localhost:8000").await.unwrap();
-
+    let ocr_engine = OcrEngine::new("http://localhost:8000").unwrap();
     let img = image::open("./tests/1.jpg").unwrap();
     let res = ocr_engine.invoice_details(&img).await.unwrap();
     dbg!(res);

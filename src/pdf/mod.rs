@@ -50,7 +50,7 @@ use crate::{err::OcrResult, server::OcrClient};
 //     Ok(temp_lib_path)
 // }
 
-async fn load_lib() -> OcrResult<Pdfium> {
+fn load_lib() -> OcrResult<Pdfium> {
     // let p = write_dylib().await?;
     // let bindings = Pdfium::bind_to_library(p)?;
     let bindings = Pdfium::bind_to_statically_linked_library()?;
@@ -58,22 +58,20 @@ async fn load_lib() -> OcrResult<Pdfium> {
     Ok(pdfium)
 }
 
-// #[derive(Debug)]
+#[derive(Debug)]
 pub struct PdfEngine {
     // pdfium: Pdfium,
+    _a: (),
 }
 
 impl PdfEngine {
-    pub async fn new() -> OcrResult<Self> {
-        load_lib().await?;
-        Ok(Self {
-            // pdfium: load_lib().await?,
-        })
+    pub fn new() -> Self {
+        Self { _a: () }
     }
 
-    pub async fn doc(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
+    pub fn doc(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
         let mut imgs = Vec::new();
-        let pdfium = load_lib().await?;
+        let pdfium = load_lib()?;
         {
             let doc = pdfium.load_pdf_from_byte_slice(&bytes, None)?;
 
@@ -100,6 +98,6 @@ impl PdfEngine {
     }
 
     pub async fn invoice(&self, client: &OcrClient, bytes: Vec<u8>) -> OcrResult<PdfInvoiceDoc> {
-        Ok(self.doc(bytes).await?.into_invoice_doc(client).await)
+        Ok(self.doc(bytes)?.into_invoice_doc(client).await)
     }
 }

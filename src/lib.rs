@@ -24,7 +24,7 @@ impl OcrEngine {
     /// if device is on the LAN network, it is caller's reposiblity to
     /// prefix the ip address with 'http://' otherwise this function will
     /// add 'https://' by default
-    pub async fn new(ocr_server_addr: &str) -> OcrResult<Self> {
+    pub fn new(ocr_server_addr: &str) -> OcrResult<Self> {
         let addr = if ocr_server_addr.starts_with("localhost")
             || ocr_server_addr.starts_with("127.0.0.1")
         {
@@ -36,8 +36,8 @@ impl OcrEngine {
         };
 
         Ok(Self {
-            pdf_engine: PdfEngine::new().await?,
-            client: OcrClient::new(addr).await?,
+            pdf_engine: PdfEngine::new(),
+            client: OcrClient::new(addr)?,
         })
     }
 
@@ -50,8 +50,8 @@ impl OcrEngine {
     /// from provided bytes
     /// It is assumed that provided bytes are from PDF, otherwise it will return
     /// an error
-    pub async fn pdf(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
-        self.pdf_engine.doc(bytes).await
+    pub fn pdf(&self, bytes: Vec<u8>) -> OcrResult<PdfDoc> {
+        self.pdf_engine.doc(bytes)
     }
 
     /// short hand to process invoice details quickly

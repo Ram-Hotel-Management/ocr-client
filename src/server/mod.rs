@@ -22,7 +22,7 @@ pub struct OcrClient {
 
 impl OcrClient {
     /// Initialize ocr client
-    pub async fn new<S: AsRef<str>>(addr: S) -> OcrResult<Self> {
+    pub fn new<S: AsRef<str>>(addr: S) -> OcrResult<Self> {
         let base = Url::parse(addr.as_ref())?;
         let client = Client::builder().use_rustls_tls().build()?;
         Ok(OcrClient { client, base })
