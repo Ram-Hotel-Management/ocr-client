@@ -1,4 +1,3 @@
-use err::OcrResult;
 use image::DynamicImage;
 use pdf::{
     PdfEngine,
@@ -9,9 +8,10 @@ use server::{
     docling::{OcrDoc, ParsedDoc},
     invoice::InvoiceDetails,
 };
-pub mod err;
+mod err;
 pub mod pdf;
 pub mod server;
+pub use err::*;
 
 pub struct OcrEngine {
     pdf_engine: PdfEngine,
@@ -19,10 +19,25 @@ pub struct OcrEngine {
 }
 
 impl OcrEngine {
+    /// prepends the addr with Http or Https is the address
+    /// is on the current computer or remote computer.
+    /// if device is on the LAN network, it is caller's reposiblity to
+    /// prefix the ip address with 'http://' otherwise this function will
+    /// add 'https://' by default
     pub async fn new(ocr_server_addr: &str) -> OcrResult<Self> {
+        let addr = if ocr_server_addr.starts_with("localhost")
+            || ocr_server_addr.starts_with("127.0.0.1")
+        {
+            format!("http://{ocr_server_addr}")
+        } else if !ocr_server_addr.starts_with("https") && !ocr_server_addr.starts_with("http") {
+            format!("https://{ocr_server_addr}")
+        } else {
+            ocr_server_addr.to_owned()
+        };
+
         Ok(Self {
             pdf_engine: PdfEngine::new().await?,
-            client: OcrClient::new(ocr_server_addr).await?,
+            client: OcrClient::new(addr).await?,
         })
     }
 

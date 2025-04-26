@@ -79,9 +79,8 @@ impl PdfDoc {
     /// as most of the invoice contain needed info on the first page
     /// in order to convert page image it needs to render into bitmap
     /// and to convert it to pixels for image it needs height and width
-    /// By default it will use A4 size paper in pixel @200DPI (w: 1654, h: 2339)
     pub(crate) async fn invoice_info(&self, client: &OcrClient) -> OcrResult<InvoiceDetails> {
-        self.invoice_info_wh(client, 2339, 1654).await
+        self.invoice_info_wh(client).await
     }
 
     /// gets invoice data will from this pdf file
@@ -89,16 +88,25 @@ impl PdfDoc {
     /// takes height and width at which the image will be generated
     /// consider using `Self::invoice_info` which renders the at @200dpi
     /// Beware that this does not perform any rotation on an the page
-    pub(crate) async fn invoice_info_wh(
-        &self,
-        client: &OcrClient,
-        height: Pixels,
-        width: Pixels,
-    ) -> OcrResult<InvoiceDetails> {
+    pub(crate) async fn invoice_info_wh(&self, client: &OcrClient) -> OcrResult<InvoiceDetails> {
         let doc = self.load()?;
         let first_page = doc.pages().first()?;
+        println!(
+            "{}, {}",
+            first_page.height().to_mm(),
+            first_page.width().to_mm()
+        );
 
-        let first_page_img = first_page.render(width, height, None)?.as_image();
+        let render_config = PdfRenderConfig::new()
+            .set_target_width(2000)
+            .set_maximum_height(2000);
+
+        let first_page_img = first_page.render_with_config(&render_config)?.as_image();
+
+        // first_page_img
+        //     .to_rgb8()
+        //     .save_with_format("./test1.jpg", image::ImageFormat::Jpeg)
+        //     .unwrap();
 
         client.get_invoice_info(&first_page_img).await
     }

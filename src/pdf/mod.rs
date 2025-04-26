@@ -1,55 +1,54 @@
 use doc::{PdfDoc, PdfInvoiceDoc};
 use pdf::prelude::*;
 pub mod doc;
-use crate::{
-    err::{OcrErrs, OcrResult},
-    server::OcrClient,
-};
-use std::{
-    env::temp_dir,
-    path::PathBuf,
-    sync::atomic::{AtomicBool, Ordering},
-};
-use tokio::fs::metadata;
+use crate::{err::OcrResult, server::OcrClient};
 
-static DYLIB_WRITTEN: AtomicBool = AtomicBool::new(false);
+// use std::{
+//     env::temp_dir,
+//     path::PathBuf,
+//     sync::atomic::{AtomicBool, Ordering},
+// };
 
-/// writes the dynamic library at the provided location
-/// based on the platform and returns the path at which it
-/// was written
-async fn write_dylib() -> OcrResult<PathBuf> {
-    #[cfg(target_os = "windows")]
-    const PDFIUM_LIB: &[u8] = include_bytes!("../../include/windows/pdfium.dll");
+// use tokio::fs::metadata;
 
-    #[cfg(target_os = "macos")]
-    const PDFIUM_LIB: &[u8] = include_bytes!("../../include/macos/libpdfium.dylib");
+// static DYLIB_WRITTEN: AtomicBool = AtomicBool::new(false);
 
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    const PDFIUM_LIB: &[u8] = include_bytes!("../../include/linux/x86_64/libpdfium.so");
+// /// writes the dynamic library at the provided location
+// /// based on the platform and returns the path at which it
+// /// was written
+// async fn write_dylib() -> OcrResult<PathBuf> {
+//     #[cfg(target_os = "windows")]
+//     const PDFIUM_LIB: &[u8] = include_bytes!("../../include/windows/pdfium.dll");
 
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    const PDFIUM_LIB: &[u8] = include_bytes!("../../include/linux/aarch64/libpdfium.so");
+//     #[cfg(target_os = "macos")]
+//     const PDFIUM_LIB: &[u8] = include_bytes!("../../include/macos/libpdfium.dylib");
 
-    let temp_lib_path = temp_dir();
-    // let temp_lib_path = temp_lib_path.join(Pdfium::pdfium_platform_library_name());
+//     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+//     const PDFIUM_LIB: &[u8] = include_bytes!("../../include/linux/x86_64/libpdfium.so");
 
-    {
-        let exists = metadata(&temp_lib_path);
-        // Write the embedded library to the temporary file
-        // if it doesn't exists
-        if !DYLIB_WRITTEN.load(Ordering::Acquire) || exists.await.is_err() {
-            std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
-                OcrErrs::Custom(format!(
-                    "Failed to create temp libpdfium dynamic library : {e:?}"
-                ))
-            })?;
+//     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+//     const PDFIUM_LIB: &[u8] = include_bytes!("../../include/linux/aarch64/libpdfium.so");
 
-            DYLIB_WRITTEN.store(true, Ordering::Release);
-        }
-    }
+//     let temp_lib_path = temp_dir();
+//     // let temp_lib_path = temp_lib_path.join(Pdfium::pdfium_platform_library_name());
 
-    Ok(temp_lib_path)
-}
+//     {
+//         let exists = metadata(&temp_lib_path);
+//         // Write the embedded library to the temporary file
+//         // if it doesn't exists
+//         if !DYLIB_WRITTEN.load(Ordering::Acquire) || exists.await.is_err() {
+//             std::fs::write(&temp_lib_path, PDFIUM_LIB).map_err(|e| {
+//                 OcrErrs::Custom(format!(
+//                     "Failed to create temp libpdfium dynamic library : {e:?}"
+//                 ))
+//             })?;
+
+//             DYLIB_WRITTEN.store(true, Ordering::Release);
+//         }
+//     }
+
+//     Ok(temp_lib_path)
+// }
 
 async fn load_lib() -> OcrResult<Pdfium> {
     // let p = write_dylib().await?;

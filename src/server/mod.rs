@@ -4,7 +4,8 @@
 /// codebase
 pub mod docling;
 pub mod invoice;
-use crate::err::OcrResult;
+use crate::{OCRServerErr, err::OcrResult};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use docling::{OcrDoc, ParsedDoc};
 use image::DynamicImage;
 use invoice::{InvoiceDetails, InvoiceResponse};
@@ -13,22 +14,7 @@ use reqwest::{
     multipart::{Form, Part},
 };
 use serde::Deserialize;
-use serde_json::Value;
 use std::io::Cursor;
-
-#[derive(Debug, Deserialize)]
-pub struct OCRServerHttpErrInner {
-    pub msg: Value,
-    pub r#type: String,
-    pub ctx: Value,
-    pub input: Value,
-    pub loc: Value,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OCRServerHttpErr {
-    pub details: Vec<OCRServerHttpErrInner>,
-}
 
 pub struct OcrClient {
     pub client: Client,
@@ -37,8 +23,8 @@ pub struct OcrClient {
 
 impl OcrClient {
     /// Initialize ocr client
-    pub async fn new(addr: &str) -> OcrResult<Self> {
-        let base = Url::parse(addr)?;
+    pub async fn new<S: AsRef<str>>(addr: S) -> OcrResult<Self> {
+        let base = Url::parse(addr.as_ref())?;
         let client = Client::builder().use_rustls_tls().build()?;
         Ok(OcrClient { client, base })
     }
@@ -59,7 +45,8 @@ impl OcrClient {
         // Convert DynamicImage to bytes
         let mut img_bytes = Vec::new();
 
-        img.write_to(&mut Cursor::new(&mut img_bytes), image::ImageFormat::Jpeg)?;
+        img.to_rgb8()
+            .write_to(&mut Cursor::new(&mut img_bytes), image::ImageFormat::Jpeg)?;
         self.bytes_req(url_path, img_bytes).await
     }
 
@@ -69,21 +56,25 @@ impl OcrClient {
     where
         T: for<'a> Deserialize<'a>,
     {
-        let part = Part::bytes(data);
+        let encoded = BASE64_STANDARD.encode(&data);
+        // let part = Part::text(encoded);
+        let part = Part::bytes(data).file_name("[unknown].jpg");
 
         let form = Form::new().part("file", part);
 
-        let res = self
-            .client
-            .post(self.base.join(url_path)?)
-            .multipart(form)
-            // .json(&body)
-            .send()
-            .await?;
+        let req = self.client.post(self.base.join(url_path)?).multipart(form);
 
-        let res = res.json::<T>().await?;
+        // println!("{:#?}", res.build()?.headers());
+        // unimplemented!()
+        let res = req.send().await?;
 
-        Ok(res)
+        // response mapping
+        if res.status().as_u16() >= 200 && res.status().as_u16() < 300 {
+            let res = res.json::<T>().await?;
+            Ok(res)
+        } else {
+            Err(res.json::<OCRServerErr>().await?.into())
+        }
     }
 
     /// makes a request to /.../ocr/invoice
@@ -98,30 +89,3 @@ impl OcrClient {
         Ok(res)
     }
 }
-
-// #[tokio::test]
-// async fn test_invoice_info() {
-//     // use std::fs::File;
-//     init_ocr_client("http://localhost:8000").unwrap();
-
-//     let img = image::open("./1.jpg").unwrap();
-//     let r = OCR_CLIENT
-//         .read()
-//         .await
-//         .as_ref()
-//         .unwrap()
-//         .invoice_info(&img)
-//         .await
-//         .unwrap();
-//     println!("{r:#?}");
-// }
-
-// #[tokio::test]
-// async fn test_doc() {
-//     // use std::fs::File;
-//     init_client("http://localhost:8000").unwrap();
-
-//     let img = image::open("./1.jpg").unwrap();
-//     let r = OCR_CLIENT.get().unwrap().invoice_info(&img).await.unwrap();
-//     println!("{r:#?}");
-// }
